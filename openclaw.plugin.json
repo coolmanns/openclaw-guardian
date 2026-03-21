@@ -1,0 +1,17 @@
+{
+  "id": "guardian",
+  "name": "Guardian",
+  "description": "Structural enforcement — blocks raw paths that have managed alternatives",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "verbose": {
+        "type": "boolean",
+        "default": false,
+        "description": "Log all evaluated tool calls, not just blocks"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "docker-mutate",
+    "description": "Block direct docker mutations — use Komodo",
+    "enabled": true,
+    "tool": "exec",
+    "pattern": "(^|[;&|\\n])\\s*(sudo\\s+)?docker\\s+(run|stop|start|rm|kill|restart|pull|build|compose|stack|service\\s+(create|update|scale|rollback|remove)|volume\\s+(create|rm|prune)|network\\s+(create|rm|prune)|image\\s+(rm|prune)|system\\s+prune|container\\s+(stop|start|kill|rm|restart|prune))",
+    "field": "command",
+    "managedPath": "Use Komodo (resolve_skill 'komodo') for all container operations",
+    "blockMessage": "🛡️ Docker mutations blocked. Use Komodo for container management."
+  }
+]

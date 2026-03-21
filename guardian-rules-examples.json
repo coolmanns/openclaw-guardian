@@ -1,0 +1,43 @@
+[
+  {
+    "id": "docker-mutate",
+    "description": "Block direct docker mutations — use your stack manager (Komodo, Portainer, etc.)",
+    "enabled": true,
+    "tool": "exec",
+    "pattern": "(^|[;&|\\n])\\s*(sudo\\s+)?docker\\s+(run|stop|start|rm|kill|restart|pull|build|compose|stack|service\\s+(create|update|scale|rollback|remove)|volume\\s+(create|rm|prune)|network\\s+(create|rm|prune)|image\\s+(rm|prune)|system\\s+prune|container\\s+(stop|start|kill|rm|restart|prune))",
+    "field": "command",
+    "managedPath": "Use your Docker stack manager (Komodo, Portainer, etc.) for all container operations",
+    "blockMessage": "🛡️ Docker mutations blocked. Use your stack manager for container management."
+  },
+  {
+    "id": "git-in-workspace",
+    "description": "Block git operations in workspace directory",
+    "enabled": false,
+    "tool": "exec",
+    "pattern": "(^|[;&|\\n])\\s*git\\s+(clone|init|checkout|reset|rebase|merge|push|pull|fetch|remote\\s+add)",
+    "field": "command",
+    "exclude": "cd\\s+/tmp",
+    "managedPath": "Clone to /tmp/ first, then copy needed files to workspace",
+    "blockMessage": "🛡️ Git operations blocked in workspace. Clone to /tmp/ first."
+  },
+  {
+    "id": "rm-workspace",
+    "description": "Block rm -rf on workspace directory",
+    "enabled": false,
+    "tool": "exec",
+    "pattern": "(^|[;&|\\n])\\s*(sudo\\s+)?rm\\s+-(rf|fr)\\s+.*(/home/\\w+/clawd|~/clawd|\\$HOME/clawd)",
+    "field": "command",
+    "managedPath": "Ask for explicit confirmation before destructive operations on workspace",
+    "blockMessage": "🛡️ Recursive deletion of workspace blocked. Ask for explicit confirmation."
+  },
+  {
+    "id": "sudo",
+    "description": "Block sudo commands",
+    "enabled": false,
+    "tool": "exec",
+    "pattern": "(^|[;&|\\n])\\s*sudo\\s+",
+    "field": "command",
+    "managedPath": "Stage files in user-writable paths, print the sudo command for your human to run",
+    "blockMessage": "🛡️ Sudo blocked. Stage the files and provide the command for your human to run."
+  }
+]
