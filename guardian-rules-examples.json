@@ -39,5 +39,46 @@
     "field": "command",
     "managedPath": "Stage files in user-writable paths, print the sudo command for your human to run",
     "blockMessage": "🛡️ Sudo blocked. Stage the files and provide the command for your human to run."
+  },
+  {
+    "id": "skill-file-protect",
+    "description": "Block direct edits to generated skill files — use your skill generator",
+    "enabled": false,
+    "tool": "Write",
+    "pattern": "(skill-docs/|/skills/|\\.openclaw/skills/).*\\.(md|MD)$",
+    "field": "file_path",
+    "fallbackField": "path",
+    "managedPath": "Update your skill DB/generator, then regenerate. Skill MDs are generated output.",
+    "blockMessage": "🛡️ Skill files are generated — don't edit directly."
+  },
+  {
+    "id": "email-read-only",
+    "description": "Block email write/forward/delete — read-only access only",
+    "enabled": false,
+    "tool": "exec",
+    "pattern": "(^|[;&|\\n])\\s*himalaya\\s+(message\\s+)?(write|forward|delete|copy|save)",
+    "field": "command",
+    "managedPath": "Email is read-only. Ask your human to send/forward/delete manually.",
+    "blockMessage": "🛡️ Email write operations blocked — read-only access."
+  },
+  {
+    "id": "gateway-restart",
+    "description": "Block direct gateway restart — use an approval workflow",
+    "enabled": false,
+    "tool": "exec",
+    "pattern": "(^|[;&|\\n])\\s*(sudo\\s+)?(openclaw\\s+gateway\\s+restart|systemctl\\s+(restart|stop)\\s+openclaw)",
+    "field": "command",
+    "managedPath": "Use an approval workflow for gateway restarts.",
+    "blockMessage": "🛡️ Direct gateway restart blocked. Use your restart workflow."
+  },
+  {
+    "id": "self-approve-lobster",
+    "description": "Block agent from self-approving Lobster approval gates",
+    "enabled": false,
+    "tool": "lobster",
+    "pattern": "^resume$",
+    "field": "action",
+    "managedPath": "Send the approval request to your human. Agents should not self-approve.",
+    "blockMessage": "🛡️ Self-approval blocked. Route approval requests to your human."
   }
 ]

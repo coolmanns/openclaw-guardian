@@ -8,5 +8,67 @@
     "field": "command",
     "managedPath": "Use Komodo (resolve_skill 'komodo') for all container operations",
     "blockMessage": "🛡️ Docker mutations blocked. Use Komodo for container management."
+  },
+  {
+    "id": "skill-md-protect",
+    "description": "Block direct edits to generated skill files — use SkillGraph",
+    "enabled": true,
+    "tool": "Write",
+    "pattern": "(skill-docs/|/skills/|\\.openclaw/skills/).*\\.(md|MD)$",
+    "field": "file_path",
+    "fallbackField": "path",
+    "managedPath": "Edit SkillGraph DB (projects/skillgraph/skillgraph.db) and regenerate. Skill MDs are generated output.",
+    "blockMessage": "🛡️ Skill files are generated from SkillGraph — don't edit directly."
+  },
+  {
+    "id": "skill-md-protect-edit",
+    "description": "Block direct edits to generated skill files — use SkillGraph",
+    "enabled": true,
+    "tool": "Edit",
+    "pattern": "(skill-docs/|/skills/|\\.openclaw/skills/).*\\.(md|MD)$",
+    "field": "file_path",
+    "fallbackField": "path",
+    "managedPath": "Edit SkillGraph DB (projects/skillgraph/skillgraph.db) and regenerate. Skill MDs are generated output.",
+    "blockMessage": "🛡️ Skill files are generated from SkillGraph — don't edit directly."
+  },
+  {
+    "id": "himalaya-destructive",
+    "description": "Block himalaya write/forward/delete — read-only email access only",
+    "enabled": true,
+    "tool": "exec",
+    "pattern": "(^|[;&|\\n])\\s*himalaya\\s+(message\\s+)?(write|forward|delete|copy|save)",
+    "field": "command",
+    "managedPath": "Email is read-only. Ask Sascha to send/forward/delete manually.",
+    "blockMessage": "🛡️ Email write operations blocked. Himalaya is read-only — ask Sascha for sends/deletes."
+  },
+  {
+    "id": "gateway-restart-exec",
+    "description": "Block direct gateway restart via CLI — use Lobster workflow",
+    "enabled": true,
+    "tool": "exec",
+    "pattern": "(^|[;&|\\n])\\s*(sudo\\s+)?(openclaw\\s+gateway\\s+restart|systemctl\\s+(restart|stop)\\s+openclaw)",
+    "field": "command",
+    "managedPath": "Use Lobster workflow: lobster tool call with action=run, pipeline=workflows/gateway-restart.yaml",
+    "blockMessage": "🛡️ Direct gateway restart blocked (GP-005). Use the Lobster restart workflow."
+  },
+  {
+    "id": "gateway-restart-tool",
+    "description": "Block gateway restart/config.apply via gateway tool — use Lobster workflow",
+    "enabled": true,
+    "tool": "gateway",
+    "pattern": "^(restart|config\\.apply)$",
+    "field": "action",
+    "managedPath": "Use Lobster workflow: lobster tool call with action=run, pipeline=workflows/gateway-restart.yaml",
+    "blockMessage": "🛡️ Direct gateway restart/config.apply blocked (GP-005). Use the Lobster restart workflow."
+  },
+  {
+    "id": "lobster-self-approve",
+    "description": "Block agent from self-approving Lobster approval gates — must be human-approved",
+    "enabled": true,
+    "tool": "lobster",
+    "pattern": "^resume$",
+    "field": "action",
+    "managedPath": "Send the resumeToken to Sascha for manual approval. Never self-approve Lobster gates.",
+    "blockMessage": "🛡️ Self-approval blocked. Send the approval request to Sascha — agents cannot approve their own gates."
   }
 ]

@@ -195,13 +195,36 @@ Rules live in `guardian-rules.json`:
 }
 ```
 
+### Block self-approval of workflow gates
+Prevent agents from approving their own approval gates — forces human-in-the-loop:
+```json
+{
+  "id": "self-approve-lobster",
+  "tool": "lobster",
+  "pattern": "^resume$",
+  "field": "action",
+  "blockMessage": "🛡️ Self-approval blocked. Route approval requests to your human."
+}
+```
+
+### Block gateway restarts (force approval workflow)
+```json
+{
+  "id": "gateway-restart",
+  "tool": "exec",
+  "pattern": "(^|[;&|\\n])\\s*(sudo\\s+)?openclaw\\s+gateway\\s+restart",
+  "field": "command",
+  "blockMessage": "🛡️ Direct restart blocked. Use your restart workflow."
+}
+```
+
 ## Testing
 
 Write test cases alongside your rules:
 
 ```bash
 node test-rules.cjs
-# Guardian Rule Tests: 80 pass / 0 fail (of 80)
+# Guardian Rule Tests: 97 pass / 0 fail (of 97)
 ```
 
 The test harness validates regex patterns against known inputs without needing the OpenClaw runtime. **Add test cases every time you add or modify a rule.**
@@ -253,6 +276,8 @@ guardian-rules.json  →  index.js (before_tool_call hook)  →  block or allow
 ```
 
 Single-file plugin, ~180 lines. Registers one `before_tool_call` hook. Evaluates all enabled rules against every tool call. First match wins.
+
+Guardian can intercept **any** OpenClaw tool — not just `exec`. Block `Write`, `Edit`, `gateway`, `lobster`, `message`, or any other tool by name. If the tool has parameters, you can match against any parameter field.
 
 ## License
 
