@@ -1,34 +1,83 @@
-# 🛡️ Guardian — Structural Enforcement for OpenClaw
+# 🛡️ Guardian — Hard Behavioral Constraints for AI Agents
 
-Guardian is an OpenClaw plugin that enforces behavioral constraints on AI agents through **hard blocks**, not prompts.
+Prompt-based rules don't work. You tell your AI agent "don't run docker stop" in a system prompt and it ignores it when it thinks it knows better. Guardian fixes this by intercepting tool calls **before they execute** and blocking the ones you don't allow.
 
-Instead of telling the model "please don't run docker stop" in a system prompt and hoping it listens, Guardian intercepts the `before_tool_call` hook and **rejects the call before it executes**. The agent gets a clear message explaining what's blocked and what managed path to use instead.
+It's an [OpenClaw](https://github.com/openclaw/openclaw) plugin. One file, no dependencies, no external services.
 
-## Why
+## What It Solves
 
-Prompt-based rules don't work reliably. The [Voxyz article](https://x.com/voxyz_ai/status/2035018811720552485) on running 5 AI agents in production found that making `memory_search` a mandatory process step (not a prompt reminder) improved retrieval from 30% to 73%. Their core finding: **"stronger models don't help as much as harder constraints."**
+**Protect your workspace from destructive commands**
+```json
+{
+  "id": "rm-workspace",
+  "tool": "exec",
+  "pattern": "(^|[;&|\\n])\\s*(sudo\\s+)?rm\\s+-(r|rf|fr)\\s+.*/clawd",
+  "field": "command",
+  "blockMessage": "🛡️ rm -rf blocked on workspace. Use trash instead."
+}
+```
 
-Guardian applies this principle: if there's a managed path (like Komodo for Docker management), block the raw path structurally. The agent can't ignore what it can't call.
+**Make tools read-only** — let the agent read emails but block write, forward, and delete:
+```json
+{
+  "id": "email-readonly",
+  "tool": "exec",
+  "pattern": "(^|[;&|\\n])\\s*himalaya\\s+(message\\s+)?(write|forward|delete|copy|save)",
+  "field": "command",
+  "blockMessage": "🛡️ Email is read-only. Ask the human to send/forward/delete."
+}
+```
 
-## How It Works
+**Protect files from edits** — prevent the agent from rewriting its own identity:
+```json
+{
+  "id": "soul-protect",
+  "tool": "Write",
+  "pattern": "SOUL\\.md$",
+  "field": "file_path",
+  "blockMessage": "🛡️ SOUL.md is protected. Changes require human approval."
+}
+```
+```json
+{
+  "id": "soul-protect-edit",
+  "tool": "Edit",
+  "pattern": "SOUL\\.md$",
+  "field": "file_path",
+  "blockMessage": "🛡️ SOUL.md is protected. Changes require human approval."
+}
+```
+
+**Force managed paths** — block raw docker commands so the agent uses your stack manager:
+```json
+{
+  "id": "docker-mutate",
+  "tool": "exec",
+  "pattern": "(^|[;&|\\n])\\s*(sudo\\s+)?docker\\s+(stop|start|rm|kill|restart|pull|build|compose|run)",
+  "field": "command",
+  "managedPath": "Use Komodo for container management",
+  "blockMessage": "🛡️ Docker mutations blocked. Use your stack manager."
+}
+```
+
+## Why Not Just Use System Prompts?
+
+The [Voxyz article](https://x.com/voxyz_ai/status/2035018811720552485) on running 5 AI agents in production found that making `memory_search` a mandatory process step (not a prompt reminder) improved retrieval from 30% to 73%. Their conclusion: **"stronger models don't help as much as harder constraints."**
+
+System prompts are suggestions. Guardian is enforcement.
 
 ```
 Agent calls exec("docker stop nginx")
   → before_tool_call hook fires
-  → Guardian evaluates rules from guardian-rules.json
-  → docker-mutate rule matches
-  → Tool call blocked with: "🛡️ Docker mutations blocked. Use Komodo."
-  → Agent receives block reason and managed path alternative
+  → Guardian matches docker-mutate rule
+  → Tool call BLOCKED
+  → Agent sees: "🛡️ Docker mutations blocked. Use your stack manager."
+  → Agent uses the managed path instead
 ```
-
-- **Rules are JSON** — no code changes needed to add/modify rules
-- **1-minute cache** — edit rules, they take effect within 60 seconds
-- **Audit log** — every block logged to `~/.openclaw/guardian/guardian.jsonl`
-- **Stats** — cumulative block counts in `~/.openclaw/guardian/stats.json`
 
 ## Install
 
-1. Copy the plugin to your OpenClaw extensions directory:
+1. Copy the plugin:
 
 ```bash
 mkdir -p ~/.openclaw/extensions/guardian
@@ -51,76 +100,123 @@ cp index.js openclaw.plugin.json guardian-rules.json ~/.openclaw/extensions/guar
 }
 ```
 
-3. Restart the gateway. You should see in logs:
+3. Restart the gateway. Look for:
 
 ```
-[guardian] Loaded 1 rules (1 enabled)
+[guardian] Loaded N rules (N enabled)
 [guardian] Registered before_tool_call enforcement hook
 ```
 
 ## Writing Rules
 
-Rules live in `guardian-rules.json` — an array of rule objects:
+Rules live in `guardian-rules.json`:
 
 ```json
 [
   {
-    "id": "docker-mutate",
-    "description": "Block direct docker mutations — use your stack manager",
+    "id": "unique-id",
+    "description": "What this rule does",
     "enabled": true,
     "tool": "exec",
-    "pattern": "(^|[;&|\\n])\\s*(sudo\\s+)?docker\\s+(stop|start|rm|kill|restart|pull|build|compose|run)",
+    "pattern": "regex-to-match",
     "field": "command",
-    "exclude": "",
-    "managedPath": "Use your Docker management tool for container operations",
-    "blockMessage": "🛡️ Docker mutations blocked. Use your stack manager."
+    "exclude": "optional-allow-pattern",
+    "managedPath": "What the agent should use instead",
+    "blockMessage": "🛡️ Message shown when blocked"
   }
 ]
 ```
 
-### Rule Fields
+### Fields
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `id` | Yes | Unique identifier |
-| `description` | Yes | Human-readable description |
-| `enabled` | Yes | `true`/`false` — disabled rules are skipped |
-| `tool` | Yes | Tool name to match (e.g., `exec`, `write`, `edit`) |
-| `pattern` | Yes | Regex pattern to match against the field value |
-| `field` | Yes | Parameter field to test (e.g., `command` for exec, `file_path` for write) |
-| `exclude` | No | Regex — if this matches, skip the rule (allow list) |
-| `managedPath` | Yes | What the agent should use instead |
-| `blockMessage` | Yes | Message shown to the agent when blocked |
+| `id` | ✅ | Unique rule identifier |
+| `description` | ✅ | Human-readable explanation |
+| `enabled` | ✅ | Toggle without deleting |
+| `tool` | ✅ | Tool to intercept: `exec`, `Write`, `Edit`, etc. |
+| `pattern` | ✅ | Regex matched against the target field (case-insensitive) |
+| `field` | ✅ | Parameter to check: `command`, `file_path`, `path`, etc. |
+| `fallbackField` | | Try this field if the primary is empty (e.g., `path` when `file_path` is null) |
+| `exclude` | | Regex — if this matches, the rule is skipped (allow list) |
+| `managedPath` | | Tells the agent what to use instead |
+| `blockMessage` | ✅ | What the agent sees on block |
 
 ### Pattern Tips
 
-- Patterns are case-insensitive (`/i` flag)
-- Use `(^|[;&|\\n])` to match command position (avoids false positives from strings inside scripts)
-- The `exclude` field is checked first — use it to allow read-only variants (e.g., `docker ps`, `docker logs`)
-- Keep patterns specific. Overly broad patterns will frustrate the agent and you.
+- Patterns use the `i` flag (case-insensitive)
+- For exec commands, prefix with `(^|[;&|\\n])\\s*` to match command position — avoids false positives from docker/himalaya inside echo strings or comments
+- Use `exclude` to carve out read-only operations from a broad block
+- Rules are cached for 60 seconds — edit the JSON and changes take effect automatically
 
-## Example Rules
+## Common Recipes
 
-See `guardian-rules-examples.json` for a starter set:
+### Block sudo entirely
+```json
+{
+  "id": "no-sudo",
+  "tool": "exec",
+  "pattern": "(^|[;&|\\n])\\s*sudo\\s+",
+  "field": "command",
+  "blockMessage": "🛡️ sudo blocked. Stage files and ask the human to run privileged commands."
+}
+```
 
-- **docker-mutate** — Block raw docker mutations, allow read-only
-- **git-in-workspace** — Block git operations in your workspace (if you use restic/other backup)
-- **rm-workspace** — Block `rm -rf` on your workspace directory
-- **sudo** — Block sudo (if your agent user shouldn't have it)
+### Block git in workspace (use backup tool instead)
+```json
+{
+  "id": "no-git-workspace",
+  "tool": "exec",
+  "pattern": "(^|[;&|\\n])\\s*git\\s+(clone|init|checkout|push|pull|merge|rebase|reset)",
+  "field": "command",
+  "blockMessage": "🛡️ Git blocked in workspace. Clone to /tmp/ first, copy what you need."
+}
+```
+
+### Protect config files
+```json
+{
+  "id": "protect-config",
+  "tool": "Write",
+  "pattern": "\\.openclaw/openclaw\\.json$",
+  "field": "file_path",
+  "blockMessage": "🛡️ Config is protected. Use the config validation workflow."
+}
+```
+
+### Read-only database access
+```json
+{
+  "id": "db-readonly",
+  "tool": "exec",
+  "pattern": "(^|[;&|\\n])\\s*(sqlite3|psql|mysql).*\\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE)\\b",
+  "field": "command",
+  "blockMessage": "🛡️ Database writes blocked. Read-only access only."
+}
+```
 
 ## Testing
 
-Run the test suite:
+Write test cases alongside your rules:
 
 ```bash
 node test-rules.cjs
+# Guardian Rule Tests: 80 pass / 0 fail (of 80)
 ```
 
-This validates the regex patterns against known-good and known-bad inputs without needing the full OpenClaw runtime. Add your own test cases when you add rules.
+The test harness validates regex patterns against known inputs without needing the OpenClaw runtime. **Add test cases every time you add or modify a rule.**
+
+## Audit Log
+
+Every block is logged to `~/.openclaw/guardian/guardian.jsonl`:
+
+```json
+{"ts":"2026-03-21T22:54:28.123Z","session":"main","rule":"docker-mutate","tool":"exec","blocked":"docker stop nginx"}
+```
+
+Cumulative stats in `~/.openclaw/guardian/stats.json`. Review periodically — frequent blocks on the same rule might mean your agent needs a better managed path, not more blocks.
 
 ## Config
-
-The plugin supports one config option:
 
 ```json
 {
@@ -137,30 +233,26 @@ The plugin supports one config option:
 }
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `verbose` | `false` | Log all evaluated tool calls, not just blocks |
+Set `verbose: true` to log all evaluated tool calls, not just blocks.
 
 ## Design Principles
 
-1. **Block, don't warn.** Warning tiers don't work — the agent ignores warnings the same way it ignores system prompts. Either block or don't.
-2. **Rules in data, not code.** JSON rules can be auto-optimized by external harnesses (e.g., a Karpathy-style "edit one thing, measure one metric" loop).
-3. **Managed path, always.** Every block must tell the agent what to do instead. A block without an alternative is just frustration.
+1. **Block, don't warn.** Warning tiers don't work — the agent treats warnings the same way it treats system prompts. Either block or allow.
+2. **Rules in data, not code.** JSON rules can be edited without touching the plugin. They can even be auto-optimized by external harnesses.
+3. **Every block needs an alternative.** A block without a `managedPath` is just frustration. Tell the agent what to do instead.
 4. **False positives are bugs.** If a legitimate operation gets blocked, fix the pattern. Don't add a "sometimes it's ok" tier.
-5. **Audit everything.** Every block is logged with timestamp, session, rule, and the blocked command. You should know exactly what Guardian is doing.
+5. **Audit everything.** You should know exactly what Guardian is doing.
 
 ## Architecture
-
-Guardian is a single-file OpenClaw plugin (~180 lines). No dependencies, no external services.
 
 ```
 guardian-rules.json  →  index.js (before_tool_call hook)  →  block or allow
                                        ↓
                               guardian.jsonl (audit log)
-                              stats.json (cumulative counts)
+                              stats.json (block counts)
 ```
 
-The plugin registers one hook (`before_tool_call`) and evaluates rules on every tool call. Rules are cached for 1 minute to avoid repeated file reads.
+Single-file plugin, ~180 lines. Registers one `before_tool_call` hook. Evaluates all enabled rules against every tool call. First match wins.
 
 ## License
 
